@@ -6,6 +6,25 @@ import networkx as nx
 import seaborn as sns
 import graph_bandit_RL
 from tqdm import trange
+import json
+
+
+
+def plot_successes(data, title=None, save_fig=None):
+    with open(data) as json_file:        
+        data = json.load(json_file)
+        
+    plotSuccesses(data, titles=title, save_fig=save_fig)
+
+def plot_regrets(data, title=None, save_fig=None):
+    with open(data) as json_file:        
+        data = json.load(json_file)
+        
+    plotRegrets([data], titles=title, save_fig=save_fig)
+    
+
+    
+    
 
 def end_node_success_rate(regrets):
     """
@@ -86,7 +105,7 @@ def return_graph(graph_type='fully_connected', n_nodes=6, n_children=None):
         assert n_children is not None
         G.add_edge(0,0)
         children = {0:0}
-        for i in range(1,20):
+        for i in range(1,n_nodes):
             G.add_edge(i,i)
             available_nodes = np.sort(list(G.nodes))
             for node in available_nodes:
@@ -95,6 +114,34 @@ def return_graph(graph_type='fully_connected', n_nodes=6, n_children=None):
                     children[node] += 1
                     children[i] = 0
                     break
+    elif graph_type=='maze':
+        G=nx.Graph()
+        G.add_edge(0,1)
+        G.add_edge(1,2)
+        G.add_edge(2,3)
+        G.add_edge(0,4)
+        G.add_edge(1,5)
+        G.add_edge(2,6)
+        G.add_edge(3,7)
+        G.add_edge(4,5)
+        G.add_edge(5,6)
+        G.add_edge(6,7)
+        G.add_edge(4,8)
+        G.add_edge(5,9)
+        G.add_edge(6,10)
+        G.add_edge(7,11)
+        G.add_edge(8,9)
+        G.add_edge(9,10)
+        G.add_edge(10,11)
+        G.add_edge(8,12)
+        G.add_edge(9,13)
+        G.add_edge(10,14)
+        G.add_edge(11,15)
+        G.add_edge(12,13)
+        G.add_edge(13,14)
+        G.add_edge(14,15)
+        for i in range(16):
+            G.add_edge(i,i)
     else:
         raise ValueError("Invalid graph type. Must be fully_connected, line, circle, star, or tree.")
     return G
@@ -116,28 +163,67 @@ def draw_graph(G, zero_indexed=True):
     
     
 
+def plotSuccesses(allSuccesses, titles=None, save_fig=None):
+    sns.set()
+    colors = ['b', 'r', 'g', 'b', 'r', 'g']
+    styles = ['solid', 'solid', 'solid', 'dotted', 'dotted', 'dotted']
+    
+    labels = {'greedy': 'Local $\epsilon$-greedy', 'thompson': 'Local TS', 'UCB': 'Local UCB','Q_learning': 'Q-learning',\
+              'Q_table_UCB': 'Q-graph with UCB', 'Q_table_Thompson': 'Q-graph with TS', 'Q_table_hoeffding': 'Q_table_hoeffding'
+             }
+    if ('greedy' in allSuccesses.keys()) and ('thompson' in allSuccesses.keys()) and ('UCB' in allSuccesses.keys()) and \
+    ('Q_learning' in allSuccesses.keys()) and ('Q_table_UCB' in allSuccesses.keys()) and \
+    ('Q_table_Thompson' in allSuccesses.keys()):
+        keys = ['greedy', 'thompson', 'UCB', 'Q_learning' , 'Q_table_Thompson', 'Q_table_UCB']
+    else:
+        keys = allSuccesses.keys()
+
+    for i, key in enumerate(keys):
+        successes = allSuccesses[key]
+        successes = np.mean(successes, axis=0)
+        plt.plot([i for i in range(1,len(successes)+1)], successes, c=colors[i], linestyle=styles[i], label=labels[key],\
+                linewidth=3)
+    if titles is not None:    
+        plt.title(titles[0])
+    plt.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, 1.45), fontsize=16)
+    plt.xlabel('$t$', fontsize=20)
+    plt.ylabel('Success rate', fontsize=20)
+    plt.tick_params(labelsize=20)
+    plt.ylim((0,1.05))
+    
+    if save_fig is not None:
+        plt.savefig('Figures/'+save_fig, bbox_inches = 'tight')
+    plt.show()
     
     
-def plotRegrets(allRegrets, titles=None):
+def plotRegrets(allRegrets, titles=None, save_fig=None):
     """
     param allRegrets: list of dictionaries of regrets(samples, time_steps) for various algorithms and runs
     """
     nPlots = len(allRegrets)
     sns.set()
-    colors = ['blue', 'orange', 'green', 'red', 'purple', 'brown', 'black', 'grey', 'olive', 'cyan']
+    colors = ['b', 'r', 'g', 'b', 'r', 'g']
+    styles = ['solid', 'solid', 'solid', 'dotted', 'dotted', 'dotted']
     
-    labels = {'greedy': 'Local greedy', 'thompson': 'Local Thompson sampling', 'UCB': 'Local UCB','Q_learning': 'Q-learning',\
-              'Q_table_UCB': 'Q-table (global) UCB', 'Q_table_Thompson': 'Q-table (global) Thompson sampling'
-             }
+    labels = {'greedy': 'Local $\epsilon$-greedy', 'thompson': 'Local TS', 'UCB': 'Local UCB','Q_learning': 'Q-learning',\
+              'Q_table_UCB': 'Q-graph with UCB', 'Q_table_Thompson': 'Q-graph with TS', 'Q_table_hoeffding': 'Q_table_hoeffding',
+             'random_path_UCB': 'Q-graph with UCB (arbitrary path)'}
+    if ('greedy' in allRegrets[0].keys()) and ('thompson' in allRegrets[0].keys()) and ('UCB' in allRegrets[0].keys()) and \
+    ('Q_learning' in allRegrets[0].keys()) and ('Q_table_UCB' in allRegrets[0].keys()) and \
+    ('Q_table_Thompson' in allRegrets[0].keys()):
+        keys = ['greedy', 'thompson', 'UCB', 'Q_learning' , 'Q_table_Thompson', 'Q_table_UCB']
+    else:
+        keys = allRegrets[0].keys()
+    
     
     if nPlots == 1:
         regrets = allRegrets[0]
-        for i, key in enumerate(regrets.keys()):
+        for i, key in enumerate(keys):
             regret = regrets[key]
             regret = np.cumsum(regret, axis=1)
-            df = pd.DataFrame(np.transpose(regret))
-            df.columns = [labels[key] for _ in range(regret.shape[0])]
-            sns.lineplot(data=df, ci=None, palette=[colors[i]])
+            regret = np.mean(regret, axis=0)
+            plt.plot([i for i in range(1,len(regret)+1)],regret, c=colors[i], linestyle = styles[i], label=labels[key],\
+                    linewidth=3)
         if titles is not None:    
             plt.title(titles[0])
     else:
@@ -158,13 +244,20 @@ def plotRegrets(allRegrets, titles=None):
                     axes[1,j%3].set_title(titles[j])
             #plt.title(titles[j])
         #plt.legend()
+    plt.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, 1.45), fontsize=16)
+    plt.xlabel('$t$', fontsize=20)
+    plt.ylabel('Expected regret', fontsize=20)
+    plt.tick_params(labelsize=20)
+    plt.style.use('seaborn-dark-palette')
+    if save_fig is not None:
+        plt.savefig('Figures/'+save_fig, bbox_inches = 'tight')
     plt.show()
     
 
 def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, G,\
                  means=None, stdevs=None, mean_magnitude=1, stdev_magnitude=1,\
                  init_nodes=None, QL_type=0, update_multiple_qs=False,\
-                 efficient_explore_length=None, prior_uncertainty=10):
+                 efficient_explore_length=None, prior_uncertainty=10, update_frequency=None):
     """
     param episodes: number of episodes
     param T: time horizon (per epoch)
@@ -179,14 +272,16 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
     param stdev_magnitude: magnitude of mean reward; e.g. stdev_magnitude=a-> means=np.ones((n_samples,6))*10*a
     param inidNodes: Dictionary of initial nodes for each algorithm
     """
-    all_env = {alg: [] for alg in algorithms}
+    all_successes = {alg: [] for alg in algorithms}
     
     nNodes = len(G.nodes)
     regrets = {alg: np.zeros((n_samples, T)) for alg in algorithms}
     if means is None:
         means = np.random.normal(size=(n_samples,nNodes))*mean_magnitude
+        means = np.abs(means)
     if stdevs is None:
         stdevs = np.ones((n_samples,nNodes))*stdev_magnitude
+        stdevs = np.abs(stdevs)
         
     if init_nodes is None:
         init_nodes = {alg: None for alg in algorithms}
@@ -199,9 +294,9 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                                                         bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
                                                                         stdev_magnitude**2], local_sampling='local_Thompson')
             Thompson.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
-                                       QL_type=None, init_node=init_nodes['thompson'])
+                                       QL_type=None, init_node=init_nodes['thompson'], update_frequency=update_frequency)
             regrets['thompson'][i,:] = Thompson.expectedRegret()
-            all_env['thompson'].append(Thompson)
+            all_successes['thompson'].append(Thompson.success)
 
             
         # Local UCB
@@ -210,9 +305,9 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                                                         bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
                                                                         stdev_magnitude**2], local_sampling='local_UCB')
             UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
-                                       QL_type=None, init_node=init_nodes['UCB'])
+                                       QL_type=None, init_node=init_nodes['UCB'], update_frequency=update_frequency)
             regrets['UCB'][i,:] = UCB.expectedRegret()
-            all_env['UCB'].append(UCB)
+            all_successes['UCB'].append(UCB.success)
 
             
         # Local Greedy action
@@ -221,9 +316,9 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                                                         bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
                                                                         stdev_magnitude**2], local_sampling='local_greedy')
             greedy.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
-                                       QL_type=None, init_node=init_nodes['greedy'])
+                                       QL_type=None, init_node=init_nodes['greedy'], update_frequency=update_frequency)
             regrets['greedy'][i,:] = greedy.expectedRegret()
-            all_env['greedy'].append(greedy)
+            all_successes['greedy'].append(greedy.success)
 
             
          
@@ -234,9 +329,9 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                                                                         stdev_magnitude**2])
             QL.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=1, init_node=init_nodes['Q_learning'],\
-                                       update_multiple_qs=True)
+                                       update_multiple_qs=True, update_frequency=update_frequency)
             regrets['Q_learning'][i,:] = QL.expectedRegret()
-            all_env['Q_learning'].append(QL)
+            all_successes['Q_learning'].append(QL.success)
          
         # Q-table approach with UCB estimates
         if 'Q_table_UCB' in algorithms:
@@ -245,9 +340,10 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                                                                             stdev_magnitude**2], Q_table_version='UCB')
                 Q_table_UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                            QL_type=None, init_node=init_nodes['Q_table_UCB'],\
-                                        update_multiple_qs=True, efficient_explore_length=efficient_explore_length)
+                                        update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
+                                       update_frequency=update_frequency)
                 regrets['Q_table_UCB'][i,:] = Q_table_UCB.expectedRegret()
-                all_env['Q_table_UCB'].append(Q_table_UCB)
+                all_successes['Q_table_UCB'].append(Q_table_UCB.success)
                 
         # Q-table approach with Thompson sampling
         if 'Q_table_Thompson' in algorithms:
@@ -258,9 +354,35 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                 Q_table_Thompson.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                            QL_type=None,\
                                              init_node=init_nodes['Q_table_Thompson'],\
-                                           update_multiple_qs=True, efficient_explore_length=efficient_explore_length)
+                                           update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
+                                            update_frequency=update_frequency)
                 regrets['Q_table_Thompson'][i,:] = Q_table_Thompson.expectedRegret()
-                all_env['Q_table_Thompson'].append(Q_table_Thompson)
+                all_successes['Q_table_Thompson'].append(Q_table_Thompson.success)
+                
+        # Efficient Q-learning based on UCB-hoeffding
+        if 'Q_table_hoeffding' in algorithms:
+                Q_table_hoeffding = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
+                                                            bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
+                                                                            stdev_magnitude**2],\
+                                                               Q_table_version='hoeffding')
+                Q_table_hoeffding.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
+                                           QL_type=None,\
+                                             init_node=init_nodes['Q_table_hoeffding'],\
+                                           update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
+                                            update_frequency=update_frequency)
+                regrets['Q_table_hoeffding'][i,:] = Q_table_hoeffding.expectedRegret()
+                all_successes['Q_table_hoeffding'].append(Q_table_hoeffding.success)
+                
+        if 'random_path_UCB' in algorithms:
+                Q_table_UCB = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
+                                                            bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
+                                                                            stdev_magnitude**2], Q_table_version='UCB')
+                Q_table_UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
+                                           QL_type=None, init_node=init_nodes['random_path_UCB'],\
+                                        update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
+                                       update_frequency=update_frequency, random_path=True)
+                regrets['random_path_UCB'][i,:] = Q_table_UCB.expectedRegret()
+                all_successes['random_path_UCB'].append(Q_table_UCB.success)
         
-    return regrets, all_env
+    return regrets, all_successes
 
