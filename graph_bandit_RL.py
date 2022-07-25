@@ -4,6 +4,7 @@ import pandas as pd
 from known_rewards_helper_functions import get_Q_table, all_paths
 from estimator import NormalBayesianEstimator, AverageEstimator
 import random
+from scipy.stats import norm
 
 class GraphBandit(gym.Env):
     """
@@ -11,7 +12,8 @@ class GraphBandit(gym.Env):
     """
     
     def __init__(self, mean, stddev, G, belief_update=None, bayesian_params=[0, 1, 1], init_state=3, uncertainty=1,\
-                 Q_table_version=None, local_sampling=None):
+                 Q_table_version=None, local_sampling=None, time_varying=False, eta=None,\
+                 a=None, N=100):
         """
         param mean: Vector of means for bandits (one mean for each node in graph G).
         param G: networkx Graph.
@@ -39,12 +41,25 @@ class GraphBandit(gym.Env):
         self.edges = self.G.edges
         self.neighbors = [list(self.G.neighbors(node)) for node in self.nodes]
         self.mu_best = np.argmax(self.mean)
+        self.all_states = []
+        self.all_rewards = {i:[0] for i in range(len(self.mean))}
+        self.all_maxes = []
+        self.visited_expected_rewards = []
         
         # Number of nodes
         self.num_nodes = self.mean.shape[0]
         
         # Rewards collected at each node during training
         self.collected_rewards = {i: [] for i in range(self.num_nodes)}
+        
+        self.time_varying = time_varying
+        if self.time_varying:
+            assert (eta is not None) and (a is not None) and (N is not None)
+            self.eta = eta
+            self.a = a
+            self.N_memory = N
+            self.c = self.mean / eta
+            
         
         
         
@@ -107,8 +122,27 @@ class GraphBandit(gym.Env):
         assert action <= self.num_nodes
         
         if (action, self.state) in self.G.edges:
+            alph = 8
+#             reward = np.random.beta(a=alph, b = alph/self.mean[action]-alph)
+            
+            reward = np.random.normal(loc=self.mean[action], scale=1)
+#             reward = max(reward, 0)
+#             reward = min(reward, 1)
+#             print(reward)
+            
 
-            reward = np.random.normal(loc=self.mean[action], scale=self.stddev[action])
+            
+
+    
+#             reward = np.random.uniform(low=0, high = 2*self.mean[action])
+                
+#             print('1', reward)
+#             reward = min(reward, 1)
+#             reward = max(reward, 0)
+#             print('2', reward)
+
+#             reward = np.random.uniform(low=0, high=self.mean[action])
+
             self.state = action
                         
             self.nodes[action]['r_hist'].append(reward)
@@ -272,6 +306,14 @@ class GraphBandit(gym.Env):
         params = np.array([list(self.nodes[node]['est'].get_param()) for node in zs])
         samples = params[:,0] + self.uncertainty * np.sqrt(np.log(h+1)/(self.visits[zs] + 1))
 
+#         ts = np.array([self.visits[z] + 1 for z in zs])
+        
+#         means = np.array([np.mean(self.all_rewards[i]) for i in range(self.num_nodes)])
+        
+#         h = np.sum(self.visits)
+        
+#         samples = means[zs] + self.uncertainty * np.sqrt(np.log(h+1)/ts)
+
         z_star = zs[np.argmax(samples)]
 
         return z_star
@@ -306,9 +348,11 @@ class GraphBandit(gym.Env):
         
         params = np.array([list(self.nodes[node]['est'].get_param()) for node in zs])
         means = params[:,0]
+#         means = np.array([np.mean(self.all_rewards[i]) for i in range(self.num_nodes)])
         
         h = np.sum(self.visits)
-        samples = means + self.uncertainty * np.sqrt(np.log(h+1)/ts)
+        
+        samples = means + np.sqrt(2*np.log(h+1)/ts)
         
         return samples
     
@@ -338,8 +382,10 @@ class GraphBandit(gym.Env):
         returns 1 if current best node belief is right; returns 0 otherwise
         """
         try: # Check Bayesian estimates
-            params = np.array([list(self.nodes[node]['est'].get_param()) for node in self.nodes])
-            best_node = np.argmax(params[:,0])
+            estimates = np.array([np.mean(self.all_rewards[i]) for i in range(self.num_nodes)])
+#             params = np.array([list(self.nodes[node]['est'].get_param()) for node in self.nodes])
+#             best_node = np.argmax(params[:,0])
+            best_node = np.argmax(estimates)
         except: # Try Q-table (for Q-learning methods)
             best_node = np.argmax(np.diagonal(self.q_table))
         if best_node == self.mu_best:
@@ -350,6 +396,18 @@ class GraphBandit(gym.Env):
     def iota(self, k, T):
         """iota in UCB-hoeffding algorithm"""
         return np.log(self.num_nodes**2 * T *(k+1)*(k+2))
+    
+    def update_means(self, state, reward):
+        """Updates in time varying mean case"""
+        if len(self.all_states) >= self.N_memory: # Only keep last N in memory
+            to_remove = self.all_states[0]
+            self.all_states = self.all_states[1:].copy()
+            self.visits[to_remove] -= 1
+            self.all_rewards[to_remove] = self.all_rewards[to_remove][1:].copy()
+        self.c = self.c + self.a
+        self.c = np.array([min(self.c[i],100) for i in range(self.num_nodes)])
+        self.c[state] = max(self.c[state] - reward, 0)
+        self.mean = self.eta * self.c
         
         
         
@@ -378,6 +436,8 @@ class GraphBandit(gym.Env):
         epsilon0 = epsilon
         if update_frequency is None:
             update_frequency = self.num_nodes
+            
+            
             
         Deltas = np.max(self.mean) - self.mean
         Delta_min = np.min(Deltas[np.nonzero(Deltas)])
@@ -487,7 +547,7 @@ class GraphBandit(gym.Env):
                             action = np.argmax(self.q_table[state])
 
                         else:  # The propsed Q-graph approach in the paper
-                            if (h%update_frequency==0): 
+                            if (h%update_frequency==0):
                                 if self.Q_table_version == 'UCB':
                                     means = self.global_UCB()
 
@@ -612,13 +672,21 @@ class GraphBandit(gym.Env):
 #-------------------------------------------------------------------------------------#
 #-------------------------------Update parameters-------------------------------------#
                 
-#                 self.nodes[state]['actions'][(state, next_state)] += 1 # Update state-action count
                 state = next_state
-#                 self.nodes[state]['n_visits'] += 1
                 self.visits[state] += 1
-#                 episodes += 1
                 self.success.append(self.compute_success())
+                self.all_states.append(state)
+                self.all_rewards[state].append(QL_reward)
+                self.all_maxes.append(np.max(self.mean))
+                self.visited_expected_rewards.append(self.mean[state])
                 
+                if self.time_varying:
+                    self.update_means(state, QL_reward)
+
+                    
+
+
+
 #-------------------------------------------------------------------------------------#
 #-------------------------------------------------------------------------------------#
 #######################################################################################
@@ -659,6 +727,24 @@ class GraphBandit(gym.Env):
         # Returns vector of expected regret
         mu_max = np.max(self.mean)
         mu_visited = self.mean[self.visitedStates]
+        
+        return np.array(self.all_maxes) - np.array(self.visited_expected_rewards)
+
+        # Truncated normal distribution
+        a = 0
+        b = 1
+        sigma = 1
+        mu = self.mean
+        alpha = (a-self.mean) / sigma
+        beta = (b - mu) / sigma
+        
+        Z = norm.cdf(beta) - norm.cdf(alpha)
+        
+        means = mu + (norm.pdf(alpha) - norm.pdf(beta)) /  Z * sigma
+        
+        mu_max = np.max(means)
+        mu_visited = means[self.visitedStates]
+        
         
         return mu_max - mu_visited
             

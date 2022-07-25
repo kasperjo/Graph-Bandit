@@ -257,7 +257,9 @@ def plotRegrets(allRegrets, titles=None, save_fig=None):
 def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, G,\
                  means=None, stdevs=None, mean_magnitude=1, stdev_magnitude=1,\
                  init_nodes=None, QL_type=0, update_multiple_qs=False,\
-                 efficient_explore_length=None, prior_uncertainty=10, update_frequency=None):
+                 efficient_explore_length=None, prior_uncertainty=10, update_frequency=None, time_varying=False,\
+                 eta=None,\
+                 a=None, N=100):
     """
     param episodes: number of episodes
     param T: time horizon (per epoch)
@@ -277,11 +279,16 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
     nNodes = len(G.nodes)
     regrets = {alg: np.zeros((n_samples, T)) for alg in algorithms}
     if means is None:
-        means = np.random.normal(size=(n_samples,nNodes))*mean_magnitude
+#         means = np.random.uniform(low=0, high=1,size=(n_samples,nNodes))
+        means = np.random.normal(loc=0, scale=1,size=(n_samples,nNodes))*mean_magnitude
         means = np.abs(means)
+#         print(means)
+
     if stdevs is None:
-        stdevs = np.ones((n_samples,nNodes))*stdev_magnitude
-        stdevs = np.abs(stdevs)
+#         stdevs = np.ones((n_samples,nNodes))*stdev_magnitude
+#         stdevs = np.abs(stdevs)
+        stdevs = np.ones((n_samples,nNodes))*0.1
+
         
     if init_nodes is None:
         init_nodes = {alg: None for alg in algorithms}
@@ -292,7 +299,8 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
         if 'thompson' in algorithms:
             Thompson = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
                                                         bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                        stdev_magnitude**2], local_sampling='local_Thompson')
+                                                                        stdev_magnitude**2], local_sampling='local_Thompson',\
+                                                  time_varying=time_varying, eta=eta,a=a, N=N)
             Thompson.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=None, init_node=init_nodes['thompson'], update_frequency=update_frequency)
             regrets['thompson'][i,:] = Thompson.expectedRegret()
@@ -303,7 +311,8 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
         if 'UCB' in algorithms:
             UCB = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
                                                         bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                        stdev_magnitude**2], local_sampling='local_UCB')
+                                                                        stdev_magnitude**2], local_sampling='local_UCB',\
+                                                  time_varying=time_varying, eta=eta,a=a, N=N)
             UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=None, init_node=init_nodes['UCB'], update_frequency=update_frequency)
             regrets['UCB'][i,:] = UCB.expectedRegret()
@@ -314,7 +323,8 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
         if 'greedy' in algorithms:
             greedy = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
                                                         bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                        stdev_magnitude**2], local_sampling='local_greedy')
+                                                                        stdev_magnitude**2], local_sampling='local_greedy',\
+                                                  time_varying=time_varying, eta=eta,a=a, N=N)
             greedy.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=None, init_node=init_nodes['greedy'], update_frequency=update_frequency)
             regrets['greedy'][i,:] = greedy.expectedRegret()
@@ -326,7 +336,8 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
         if 'Q_learning' in algorithms:
             QL = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update='Bayesian_full_update',\
                                                         bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                        stdev_magnitude**2])
+                                                                        stdev_magnitude**2],\
+                                                  time_varying=time_varying, eta=eta,a=a, N=N)
             QL.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=1, init_node=init_nodes['Q_learning'],\
                                        update_multiple_qs=True, update_frequency=update_frequency)
@@ -337,7 +348,8 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
         if 'Q_table_UCB' in algorithms:
                 Q_table_UCB = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
                                                             bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                            stdev_magnitude**2], Q_table_version='UCB')
+                                                                            stdev_magnitude**2], Q_table_version='UCB',\
+                                                  time_varying=time_varying, eta=eta,a=a, N=N)
                 Q_table_UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                            QL_type=None, init_node=init_nodes['Q_table_UCB'],\
                                         update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
@@ -350,7 +362,8 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                 Q_table_Thompson = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
                                                             bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
                                                                             stdev_magnitude**2],\
-                                                               Q_table_version='Thompson')
+                                                               Q_table_version='Thompson',\
+                                                  time_varying=time_varying, eta=eta,a=a, N=N)
                 Q_table_Thompson.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                            QL_type=None,\
                                              init_node=init_nodes['Q_table_Thompson'],\
@@ -364,7 +377,8 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                 Q_table_hoeffding = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
                                                             bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
                                                                             stdev_magnitude**2],\
-                                                               Q_table_version='hoeffding')
+                                                               Q_table_version='hoeffding',\
+                                                  time_varying=time_varying, eta=eta,a=a, N=N)
                 Q_table_hoeffding.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                            QL_type=None,\
                                              init_node=init_nodes['Q_table_hoeffding'],\
@@ -376,7 +390,8 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
         if 'random_path_UCB' in algorithms:
                 Q_table_UCB = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
                                                             bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                            stdev_magnitude**2], Q_table_version='UCB')
+                                                                            stdev_magnitude**2], Q_table_version='UCB',\
+                                                  time_varying=time_varying, eta=eta,a=a, N=N)
                 Q_table_UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                            QL_type=None, init_node=init_nodes['random_path_UCB'],\
                                         update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
