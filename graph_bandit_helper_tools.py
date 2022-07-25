@@ -279,9 +279,9 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
     nNodes = len(G.nodes)
     regrets = {alg: np.zeros((n_samples, T)) for alg in algorithms}
     if means is None:
-#         means = np.random.uniform(low=0, high=1,size=(n_samples,nNodes))
-        means = np.random.normal(loc=0, scale=1,size=(n_samples,nNodes))*mean_magnitude
-        means = np.abs(means)
+        means = np.random.uniform(low=0.5, high=5.5,size=(n_samples,nNodes))
+#         means = np.random.normal(loc=0, scale=1,size=(n_samples,nNodes))*mean_magnitude
+#         means = np.abs(means)
 #         print(means)
 
     if stdevs is None:
@@ -303,7 +303,7 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                                                   time_varying=time_varying, eta=eta,a=a, N=N)
             Thompson.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=None, init_node=init_nodes['thompson'], update_frequency=update_frequency)
-            regrets['thompson'][i,:] = Thompson.expectedRegret()
+            regrets['thompson'][i,:] = Thompson.expectedRegret()[-1000:]
             all_successes['thompson'].append(Thompson.success)
 
             
@@ -315,7 +315,7 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                                                   time_varying=time_varying, eta=eta,a=a, N=N)
             UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=None, init_node=init_nodes['UCB'], update_frequency=update_frequency)
-            regrets['UCB'][i,:] = UCB.expectedRegret()
+            regrets['UCB'][i,:] = UCB.expectedRegret()[-1000:]
             all_successes['UCB'].append(UCB.success)
 
             

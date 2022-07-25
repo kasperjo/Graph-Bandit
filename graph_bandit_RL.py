@@ -5,6 +5,7 @@ from known_rewards_helper_functions import get_Q_table, all_paths
 from estimator import NormalBayesianEstimator, AverageEstimator
 import random
 from scipy.stats import norm
+import networkx as nx
 
 class GraphBandit(gym.Env):
     """
@@ -122,10 +123,11 @@ class GraphBandit(gym.Env):
         assert action <= self.num_nodes
         
         if (action, self.state) in self.G.edges:
-            alph = 8
+#             alph = 8
+            reward = np.random.uniform(low = self.mean[action]-0.5, high=self.mean[action]+0.5)
 #             reward = np.random.beta(a=alph, b = alph/self.mean[action]-alph)
             
-            reward = np.random.normal(loc=self.mean[action], scale=1)
+#             reward = np.random.normal(loc=self.mean[action], scale=1)
 #             reward = max(reward, 0)
 #             reward = min(reward, 1)
 #             print(reward)
@@ -146,6 +148,12 @@ class GraphBandit(gym.Env):
             self.state = action
                         
             self.nodes[action]['r_hist'].append(reward)
+            
+            self.visits[self.state] += 1
+            self.nodes[self.state]['n_visits'] += 1
+            self.all_maxes.append(np.max(self.mean)) 
+            self.visited_expected_rewards.append(self.mean[self.state])
+            self.all_rewards[self.state].append(reward) 
             
             # Determine what R (reward) to use in Q-learning algorithm.
             # Sampled reward or full estimate.
@@ -190,14 +198,13 @@ class GraphBandit(gym.Env):
         neighbors = self.neighbors[node]
         N_explorations = self.visits[neighbors]
         return neighbors[np.argmin(N_explorations)]
-    
-    def visit_all_nodes(self, node):
+
+    def visit_all_nodes_old(self, node):
         """
         Visits all nodes in graph (at least) once.
         
         param node: current state.
         """            
-        
         # Explore neighboring nodes
         for neighbor in list(self.neighbors[node]):
             if neighbor != node:
@@ -265,6 +272,22 @@ class GraphBandit(gym.Env):
                 min_exploration = self.visits[neighbor]
         return action
     
+    def visit_all_nodes(self):
+        while True:
+            unvisited = [i for i in range(self.num_nodes) if self.visits[i]==0]
+            if len(unvisited)==0:
+                break
+
+            dest = unvisited[0]
+
+            next_path = nx.shortest_path(self.G,self.state,dest)
+            
+            if len(next_path) == 1 and next_path[0] == self.state:
+                self.step(self.state)
+            else:
+                for s in next_path[1:]:
+                    self.step(s)
+    
     def local_thompson_sampling(self, node):
         """
         Local Thompson sampling
@@ -303,16 +326,16 @@ class GraphBandit(gym.Env):
         """
         
         zs = self.neighbors[node]        
-        params = np.array([list(self.nodes[node]['est'].get_param()) for node in zs])
-        samples = params[:,0] + self.uncertainty * np.sqrt(np.log(h+1)/(self.visits[zs] + 1))
+#         params = np.array([list(self.nodes[node]['est'].get_param()) for node in zs])
+#         samples = params[:,0] + self.uncertainty * np.sqrt(np.log(h+1)/(self.visits[zs] + 1))
 
-#         ts = np.array([self.visits[z] + 1 for z in zs])
+        ts = np.array([self.visits[z] for z in zs])
         
-#         means = np.array([np.mean(self.all_rewards[i]) for i in range(self.num_nodes)])
+        means = np.array([np.mean(self.all_rewards[i]) for i in range(self.num_nodes)])
         
-#         h = np.sum(self.visits)
+        h = np.sum(self.visits)
         
-#         samples = means[zs] + self.uncertainty * np.sqrt(np.log(h+1)/ts)
+        samples = means[zs] + np.sqrt(2*np.log(h+1)/ts)
 
         z_star = zs[np.argmax(samples)]
 
@@ -577,9 +600,17 @@ class GraphBandit(gym.Env):
                             
                     elif self.local_sampling is not None:
                         if self.local_sampling == 'local_Thompson':
-                            action = self.local_thompson_sampling(state)
+                            if len(self.visitedStates) == 0:
+                                self.visit_all_nodes()
+                                action = None
+                            else:
+                                action = self.local_thompson_sampling(state)
                         elif self.local_sampling == 'local_UCB':
-                            action = self.local_UCB(state, h)
+                            if len(self.visitedStates) == 0:
+                                self.visit_all_nodes()
+                                action = None
+                            else:
+                                action = self.local_UCB(state, h)
                         elif self.local_sampling == 'local_greedy':
                             action = self.local_greedy(state, epsilon)
 #-------------------------------------------------------------------------------------#                      
@@ -589,7 +620,8 @@ class GraphBandit(gym.Env):
 #######################################################################################
 
                 # Next state, reward, and store reward
-                next_state, QL_reward, done = self.step(action)
+                if action is not None:
+                    next_state, QL_reward, done = self.step(action)
             
             
             
@@ -672,13 +704,13 @@ class GraphBandit(gym.Env):
 #-------------------------------------------------------------------------------------#
 #-------------------------------Update parameters-------------------------------------#
                 
-                state = next_state
-                self.visits[state] += 1
+                state = self.state
+#                 self.visits[state] += 1 in self.step() function
                 self.success.append(self.compute_success())
                 self.all_states.append(state)
-                self.all_rewards[state].append(QL_reward)
-                self.all_maxes.append(np.max(self.mean))
-                self.visited_expected_rewards.append(self.mean[state])
+#                 self.all_rewards[state].append(QL_reward) in self.step() function
+#                 self.all_maxes.append(np.max(self.mean)) in self.step() function
+#                 self.visited_expected_rewards.append(self.mean[state])
                 
                 if self.time_varying:
                     self.update_means(state, QL_reward)
