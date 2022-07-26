@@ -117,7 +117,7 @@ class GraphBandit(gym.Env):
         self.q_table_generated = False
         
         
-    def step(self, action):
+    def step(self, action, update_Q=False, gamma=0.1):
         # Take a step in the graph with 
         # Returns: observation, QL_reward, done
         assert action <= self.num_nodes
@@ -144,8 +144,11 @@ class GraphBandit(gym.Env):
 #             print('2', reward)
 
 #             reward = np.random.uniform(low=0, high=self.mean[action])
-
+            
+            state_old = self.state
             self.state = action
+            
+            
                         
             self.nodes[action]['r_hist'].append(reward)
             
@@ -171,6 +174,8 @@ class GraphBandit(gym.Env):
             print("Something is wrong. Illegal action")
             
         self.visitedStates.append(self.state)
+        if update_Q:
+            self.update_q_table(state_old, action, gamma)
         return self.state, QL_reward, False
     
     def show_q_table(self):
@@ -272,7 +277,7 @@ class GraphBandit(gym.Env):
                 min_exploration = self.visits[neighbor]
         return action
     
-    def visit_all_nodes(self):
+    def visit_all_nodes(self, update_Q=False, gamma=0.1):
         while True:
             unvisited = [i for i in range(self.num_nodes) if self.visits[i]==0]
             if len(unvisited)==0:
@@ -283,10 +288,10 @@ class GraphBandit(gym.Env):
             next_path = nx.shortest_path(self.G,self.state,dest)
             
             if len(next_path) == 1 and next_path[0] == self.state:
-                self.step(self.state)
+                self.step(self.state, update_Q, gamma)
             else:
                 for s in next_path[1:]:
-                    self.step(s)
+                    self.step(s, update_Q, gamma)
     
     def local_thompson_sampling(self, node):
         """
@@ -296,20 +301,22 @@ class GraphBandit(gym.Env):
 
         zs = list(self.neighbors[node])
         params = np.array([list(self.nodes[node]['est'].get_param()) for node in zs])
-        samples = np.random.normal(loc=params[:,0], scale=np.sqrt(params[:,1]))
+#         samples = np.random.normal(loc=params[:,0], scale=np.sqrt(params[:,1]))
+        samples = np.random.beta(a=params[:,0]+1, b=params[:,1]+1)
+        
         
         z_star = zs[np.argmax(samples)]
 
         return z_star
     
-    def local_greedy(self, node, epsilon0):
+    def local_greedy(self, node, epsilon):
         """
         Local greedy action
         """
         # Deciding next s using Thompson Sampling.
         muhats = []
         zs = []
-        epsilon = epsilon0 / (np.min(self.visits)+1)
+#         epsilon = epsilon0 / (np.min(self.visits)+1)
 
         if np.random.rand() < epsilon:
             z_star = self.explore(node)
@@ -494,14 +501,19 @@ class GraphBandit(gym.Env):
 #-------------------------------------------------------------------------------------#
                 # Reduce epsilon
         
-                epsilon = epsilon0 / (np.min(self.visits)+1)
-                
+#                 epsilon = epsilon0 / (np.sum(self.visits)+1)
+                epsilon = epsilon0*epsilon_discount**h
+#                 epsilon = (0.2*H + 1) / (0.2*H + h)
                 if QL_type is not None:
                     if QL_type == 1: # 'Greedy efficient' exploration
-                        if random.uniform(0, 1) < epsilon:
-                            action = self.explore(state)
+                        if False: # len(self.visitedStates) == 0:
+                            self.visit_all_nodes(update_Q=True, gamma=gamma)
+                            action = None
                         else:
-                            action = np.argmax(self.q_table[state]) # Exploit learned values
+                            if random.uniform(0, 1) < epsilon:
+                                action = self.explore(state)
+                            else:
+                                action = np.argmax(self.q_table[state]) # Exploit learned values
 
 
                     elif QL_type ==0: # Epsilon greedy
@@ -657,24 +669,9 @@ class GraphBandit(gym.Env):
 
    
 
-                if QL_type is not None:
-                    old_value = self.q_table[state, action]
-                    next_max = np.max(self.q_table[next_state])
+                if QL_type is not None and action is not None:
+                    self.update_q_table(state, action, gamma)
 
-#                     if self.belief_update!='Bayesian_full_update' and self.belief_update!='average_full_update':
-#                         new_value = (1 - alpha) * old_value + alpha * (QL_reward + gamma * next_max)
-
-#                     else:
-#                         new_value = self.nodes[action]['est'].get_param()[0] + gamma * next_max # Full Bayesian update
-
-
-                    for node in self.neighbors[action]:
-                        old_value = self.q_table[node, action]
-                        if self.belief_update!='Bayesian_full_update' and self.belief_update!='average_full_update':
-                            new_value = (1 - alpha) * old_value + alpha * (QL_reward + gamma * next_max)
-                        else: 
-                            new_value = self.nodes[action]['est'].get_param()[0] + gamma * next_max # Full Bayesian update
-                        self.q_table[node, action] = new_value
 #                         self.nodes[node]['actions'][(node, next_state)] += 1 # Update state-action count
 
 
@@ -722,7 +719,27 @@ class GraphBandit(gym.Env):
 #-------------------------------------------------------------------------------------#
 #-------------------------------------------------------------------------------------#
 #######################################################################################
+    
+    def update_q_table(self, state, action, gamma):
+        next_state = action
+        old_value = self.q_table[state, action]
+        next_max = np.max(self.q_table[next_state])
 
+    #                     if self.belief_update!='Bayesian_full_update' and self.belief_update!='average_full_update':
+    #                         new_value = (1 - alpha) * old_value + alpha * (QL_reward + gamma * next_max)
+
+    #                     else:
+    #                         new_value = self.nodes[action]['est'].get_param()[0] + gamma * next_max # Full Bayesian update
+
+
+        for node in self.neighbors[action]:
+            old_value = self.q_table[node, action]
+            if self.belief_update!='Bayesian_full_update' and self.belief_update!='average_full_update':
+                new_value = (1 - alpha) * old_value + alpha * (QL_reward + gamma * next_max)
+            else: 
+#                 new_value = self.nodes[action]['est'].get_param()[0] + gamma * next_max # Full Bayesian update
+                new_value = np.mean(self.all_rewards[action]) + gamma * next_max
+            self.q_table[node, action] = new_value
                 
     def runAgent(self, T=100, state=None):
         """

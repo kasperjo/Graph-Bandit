@@ -14,30 +14,39 @@ class NormalBayesianEstimator:
 #         else:
 #             self.var = m*epsilon/(1-epsilon*self.var_0)
 
-        self.mu_0 = mu_0
-        self.var_0 = var_0
-        self.var = var
-        self.xsum = 0
-        self.n = 0
+#         self.mu_0 = mu_0
+#         self.var_0 = var_0
+#         self.var = var
+#         self.xsum = 0
+#         self.n = 0
         
-        if self.var_0 == 0:
-            self.var_0 = 1e-5
-        if self.var == 0:
-            self.var = 1e-5
+#         if self.var_0 == 0:
+#             self.var_0 = 1e-5
+#         if self.var == 0:
+#             self.var = 1e-5
         
-        self.mu_1 = self.mu_0 # Current mean
-        self.var_1 = self.var_0 # Currenc variance
+#         self.mu_1 = self.mu_0 # Current mean
+#         self.var_1 = self.var_0 # Currenc variance
+        self.S = 0
+        self.F = 0
         
     def get_param(self):
-        return self.mu_1,self.var_1
+        return self.S, self.F
+#         return self.mu_1,self.var_1
     
     def update(self,x):
-        self.xsum += x
-        self.n +=1
+        r = (x-0.5)/5
+        result = np.random.binomial(1, r)
+        if result == 0:
+            self.F += 1
+        elif result == 1:
+            self.S += 1
+#         self.xsum += x
+#         self.n +=1
         
 
-        self.var_1 = 1/(1/self.var_0 + self.n/self.var) 
-        self.mu_1 = self.var_1 * (self.mu_0/self.var_0 + self.xsum/self.var)
+#         self.var_1 = 1/(1/self.var_0 + self.n/self.var) 
+#         self.mu_1 = self.var_1 * (self.mu_0/self.var_0 + self.xsum/self.var)
         
 class AverageEstimator:
     def __init__(self):

@@ -303,7 +303,7 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                                                   time_varying=time_varying, eta=eta,a=a, N=N)
             Thompson.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=None, init_node=init_nodes['thompson'], update_frequency=update_frequency)
-            regrets['thompson'][i,:] = Thompson.expectedRegret()[-1000:]
+            regrets['thompson'][i,:] = Thompson.expectedRegret()[-T:]
             all_successes['thompson'].append(Thompson.success)
 
             
@@ -315,7 +315,7 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
                                                   time_varying=time_varying, eta=eta,a=a, N=N)
             UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=None, init_node=init_nodes['UCB'], update_frequency=update_frequency)
-            regrets['UCB'][i,:] = UCB.expectedRegret()[-1000:]
+            regrets['UCB'][i,:] = UCB.expectedRegret()[-T:]
             all_successes['UCB'].append(UCB.success)
 
             
@@ -341,7 +341,7 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
             QL.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
                                        QL_type=1, init_node=init_nodes['Q_learning'],\
                                        update_multiple_qs=True, update_frequency=update_frequency)
-            regrets['Q_learning'][i,:] = QL.expectedRegret()
+            regrets['Q_learning'][i,:] = QL.expectedRegret()[-T:]
             all_successes['Q_learning'].append(QL.success)
          
         # Q-table approach with UCB estimates
