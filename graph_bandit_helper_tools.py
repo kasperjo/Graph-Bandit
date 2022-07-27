@@ -344,60 +344,6 @@ def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, 
             regrets['Q_learning'][i,:] = QL.expectedRegret()[-T:]
             all_successes['Q_learning'].append(QL.success)
          
-        # Q-table approach with UCB estimates
-        if 'Q_table_UCB' in algorithms:
-                Q_table_UCB = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
-                                                            bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                            stdev_magnitude**2], Q_table_version='UCB',\
-                                                  time_varying=time_varying, eta=eta,a=a, N=N)
-                Q_table_UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
-                                           QL_type=None, init_node=init_nodes['Q_table_UCB'],\
-                                        update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
-                                       update_frequency=update_frequency)
-                regrets['Q_table_UCB'][i,:] = Q_table_UCB.expectedRegret()
-                all_successes['Q_table_UCB'].append(Q_table_UCB.success)
-                
-        # Q-table approach with Thompson sampling
-        if 'Q_table_Thompson' in algorithms:
-                Q_table_Thompson = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
-                                                            bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                            stdev_magnitude**2],\
-                                                               Q_table_version='Thompson',\
-                                                  time_varying=time_varying, eta=eta,a=a, N=N)
-                Q_table_Thompson.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
-                                           QL_type=None,\
-                                             init_node=init_nodes['Q_table_Thompson'],\
-                                           update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
-                                            update_frequency=update_frequency)
-                regrets['Q_table_Thompson'][i,:] = Q_table_Thompson.expectedRegret()
-                all_successes['Q_table_Thompson'].append(Q_table_Thompson.success)
-                
-        # Efficient Q-learning based on UCB-hoeffding
-        if 'Q_table_hoeffding' in algorithms:
-                Q_table_hoeffding = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
-                                                            bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                            stdev_magnitude**2],\
-                                                               Q_table_version='hoeffding',\
-                                                  time_varying=time_varying, eta=eta,a=a, N=N)
-                Q_table_hoeffding.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
-                                           QL_type=None,\
-                                             init_node=init_nodes['Q_table_hoeffding'],\
-                                           update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
-                                            update_frequency=update_frequency)
-                regrets['Q_table_hoeffding'][i,:] = Q_table_hoeffding.expectedRegret()
-                all_successes['Q_table_hoeffding'].append(Q_table_hoeffding.success)
-                
-        if 'random_path_UCB' in algorithms:
-                Q_table_UCB = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update=None,\
-                                                            bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                            stdev_magnitude**2], Q_table_version='UCB',\
-                                                  time_varying=time_varying, eta=eta,a=a, N=N)
-                Q_table_UCB.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
-                                           QL_type=None, init_node=init_nodes['random_path_UCB'],\
-                                        update_multiple_qs=True, efficient_explore_length=efficient_explore_length,\
-                                       update_frequency=update_frequency, random_path=True)
-                regrets['random_path_UCB'][i,:] = Q_table_UCB.expectedRegret()
-                all_successes['random_path_UCB'].append(Q_table_UCB.success)
-        
+            
     return regrets, all_successes
 
