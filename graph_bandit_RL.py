@@ -477,11 +477,16 @@ class GraphBandit(gym.Env):
         
         self.success = []
         
+        if self.Q_table_version == 'hoeffding': # UCB-hoeffding approach, efficient Q-learning
+            for i in range(self.num_nodes):
+                for j in range(self.num_nodes):
+                    if (i,j) in self.edges:
+                        self.q_table[i,j] = 1/(1-gamma)
+                 
         self.Q_hat = self.q_table.copy() 
+                    
+
         
-        
-        # Initialize the distributional believes
-        self.visit_all_nodes()    
 
         for k in range(1, episodes+1):
             state = self.reset(init_node)
@@ -499,19 +504,125 @@ class GraphBandit(gym.Env):
 #                 epsilon = epsilon0 / (np.sum(self.visits)+1)
                 epsilon = epsilon0*epsilon_discount**h
 #                 epsilon = (0.2*H + 1) / (0.2*H + h)
-                if QL_type is not None:          
-                    if random.uniform(0, 1) < epsilon:
-                        action = self.explore(state)
-                    else:
-                        action = np.argmax(self.q_table[state]) # Exploit learned values
-                
+                if QL_type is not None:
+                    if QL_type == 1: # 'Greedy efficient' exploration
+                        if False: # len(self.visitedStates) == 0:
+                            self.visit_all_nodes(update_Q=True, gamma=gamma)
+                            action = None
+                        else:
+                            if random.uniform(0, 1) < epsilon:
+                                action = self.explore(state)
+                            else:
+                                action = np.argmax(self.q_table[state]) # Exploit learned values
+
+
+                    elif QL_type ==0: # Epsilon greedy
+                        if random.uniform(0, 1) < epsilon and h<T_eps_max:
+                                action = random.choice(list(self.neighbors[state]))  
+                        else:
+                            action = np.argmax(self.q_table[state]) # Exploit learned values
+
+                    elif QL_type == 2:
+                        if random.uniform(0, 1) < self.epsilons[state] and h<T_eps_max:
+                            action = self.local_thompson_sampling(state)
+                        else:
+                            action = np.argmax(self.q_table[state]) # Exploit learned values
+                    elif QL_type == 3:
+                        if random.uniform(0, 1) < self.epsilons[state] and h<T_eps_max:
+                            action = self.local_UCB(state, h)
+                        else:
+                            action = np.argmax(self.q_table[state]) # Exploit learned values
+                    elif QL_type == 4:
+                            if random.uniform(0, 1) < self.epsilons[state] and h<T_eps_max:
+                                action = self.QL_alg4_action(state)
+                            else:
+                                action = np.argmax(self.q_table[state]) # Exploit learned values
+                    elif QL_type == 5:
+                        assert efficient_explore_length is not None
+                        if h==0:
+                            N=efficient_explore_length
+                        else:
+                            N=None
+                        action = self.explore_efficiently(state, N=N) 
+                    elif QL_type == 8:
+                        assert efficient_explore_length is not None
+                        if h==0:
+                            N=efficient_explore_length
+                        else:
+                            N=None
+                        if h==efficient_explore_length:
+                            means = np.array([self.nodes[i]['est'].get_param()[0] for i in self.nodes])
+                            self.q_table = get_Q_table(self.G, means, T=rounds-efficient_explore_length)
+                        action = self.explore_efficiently(state, N=N) 
+                    elif QL_type == 'Thompson':  
+                        if h == 100:
+                            # action = self.explore_efficiently(state, N=20) 
+                            means = np.array([self.nodes[i]['est'].get_param()[0] for i in self.nodes])
+                            self.q_table = get_Q_table(self.G, means, T=rounds-efficient_explore_length)
+                            action = np.argmax(self.q_table[state])
+                        elif h > 100:
+                            action = np.argmax(self.q_table[state])
+                        else:
+                            if (np.array([i+h for i in range(3)]) % 10 == 0).any():
+                                lower_bound = self.lower95[state]
+                                upper_bounds = list(self.upper95.values())
+                                upper_bounds[state] = -np.inf
+                                upper_bound = np.max(upper_bounds)
+                                if (upper_bound > lower_bound): # or np.min(self.visits) < 1) and j<100:
+                                    action = self.explore(state)
+                                else:
+                                    action = self.local_thompson_sampling(state)
+                            else:
+                                action = self.local_thompson_sampling(state)
+                    
                 # Q-table+UCB or Q-table+Thompson sampling
                 elif QL_type is None:
-                    if self.local_sampling is not None:
+                    if self.Q_table_version is not None:
+                        if self.Q_table_version == 'hoeffding': # UCB-hoeffding, efficient Q-learing
+                            action = np.argmax(self.q_table[state])
+
+                        else:  # The propsed Q-graph approach in the paper
+                            if (h%update_frequency==0):
+                                if self.Q_table_version == 'UCB':
+                                    means = self.global_UCB()
+
+                                elif self.Q_table_version=='Thompson':
+                                    means = self.global_thompson_sampling()
+
+                                # Generate "known rewards" Q-table with mean estimates
+                                if not random_path:
+                                    self.q_table,_ , _ = get_Q_table(self.G, means, self.num_nodes)
+                                else:
+                                    highest_sample = np.argmax(means)
+                                    all_paths_temp = all_paths(self.G, state, highest_sample)
+                                    if len(all_paths_temp) > 1:
+                                        path = np.random.choice(all_paths_temp)
+                                    else:
+                                        path = all_paths_temp[0]
+                                    path.pop(0) # Remove current node
+                                    while len(path) > update_frequency:
+                                        path = np.random.choice(all_paths_temp)
+                                        path.pop(0) # Remove current node
+                                    path = path + [highest_sample for _ in range(update_frequency-len(path))]
+                            if not random_path:
+                                action = np.argmax(self.q_table[state])
+                            else:
+                                action = path[h%update_frequency]
+                           
+                            
+                    elif self.local_sampling is not None:
                         if self.local_sampling == 'local_Thompson':
-                            action = self.local_thompson_sampling(state)
+                            if len(self.visitedStates) == 0:
+                                self.visit_all_nodes()
+                                action = None
+                            else:
+                                action = self.local_thompson_sampling(state)
                         elif self.local_sampling == 'local_UCB':
-                            action = self.local_UCB(state, h)
+                            if len(self.visitedStates) == 0:
+                                self.visit_all_nodes()
+                                action = None
+                            else:
+                                action = self.local_UCB(state, h)
                         elif self.local_sampling == 'local_greedy':
                             action = self.local_greedy(state, epsilon)
 #-------------------------------------------------------------------------------------#                      
@@ -522,17 +633,61 @@ class GraphBandit(gym.Env):
 
                 # Next state, reward, and store reward
                 if action is not None:
-                    next_state, QL_reward, done = self.step(action)    
+                    next_state, QL_reward, done = self.step(action)
+            
+            
+            
+        
+        
         
 #######################################################################################
 #-------------------------------------------------------------------------------------#
 #-------------------------------Update Q-table (if applicable)------------------------#
 #---------NOTE: This section is skipped for Q-table + UCB/Thompson approach-----------#
 #-------------------------------------------------------------------------------------#
- 
+                
+                if self.Q_table_version == 'hoeffding': # UCB-hoeffding, efficient Q-learing
+                    k = self.visits[action] + 1
+                    c_2 = 4*np.sqrt(2)
+                    iota = self.iota(k, H)
+                    b_k = c_2/(1-gamma) * np.sqrt(H_hoeffding*iota/k)
+                    alpha_k = (H_hoeffding+1)/(H_hoeffding+k)
+                    
+                    V_hat = np.max(self.Q_hat[action])
+                    for neighbor in self.neighbors[action]:
+                        self.q_table[neighbor, action] = (1-alpha_k)*self.q_table[neighbor, action] \
+                            + alpha_k*(QL_reward + b_k + gamma*V_hat)
+                        self.Q_hat[neighbor, action] = min(self.q_table[neighbor, action], self.Q_hat[neighbor, action])
+
+                    
+                        
+                        
+                        
+        
+        
+
+
+   
+
                 if QL_type is not None and action is not None:
                     self.update_q_table(state, action, gamma)
 
+#                         self.nodes[node]['actions'][(node, next_state)] += 1 # Update state-action count
+
+
+
+#                     mu_temp, sigma_temp = self.nodes[action]['est'].get_param()
+#                     # Update upper and lower confidence bounds
+#                     self.upper95[action] = mu_temp + self.uncertainty*sigma_temp
+#                     self.lower95[action] = mu_temp - self.uncertainty*sigma_temp
+#                     if  self.upper95[action] < self.lower95[action]:
+#                         print('Something is wrong. UCB<LCB')
+
+#                     if QL_type == 4: # Eliminate high-confidence "bad" choice
+#                         lower_confidence = list(self.lower95.values())
+#                         lower_confidence = np.array(lower_confidence)
+#                         if (self.upper95[action] < lower_confidence[list(self.neighbors[action])]).any():
+#                             self.q_table[state, action] = -np.inf
                             
 #-------------------------------------------------------------------------------------#
 #-------------------------------------------------------------------------------------#
@@ -550,7 +705,10 @@ class GraphBandit(gym.Env):
 #                 self.visits[state] += 1 in self.step() function
                 self.success.append(self.compute_success())
                 self.all_states.append(state)
-
+#                 self.all_rewards[state].append(QL_reward) in self.step() function
+#                 self.all_maxes.append(np.max(self.mean)) in self.step() function
+#                 self.visited_expected_rewards.append(self.mean[state])
+                
                 if self.time_varying:
                     self.update_means(state, QL_reward)
 
@@ -566,6 +724,13 @@ class GraphBandit(gym.Env):
         next_state = action
         old_value = self.q_table[state, action]
         next_max = np.max(self.q_table[next_state])
+
+    #                     if self.belief_update!='Bayesian_full_update' and self.belief_update!='average_full_update':
+    #                         new_value = (1 - alpha) * old_value + alpha * (QL_reward + gamma * next_max)
+
+    #                     else:
+    #                         new_value = self.nodes[action]['est'].get_param()[0] + gamma * next_max # Full Bayesian update
+
 
         for node in self.neighbors[action]:
             old_value = self.q_table[node, action]
@@ -631,8 +796,3 @@ class GraphBandit(gym.Env):
         
         
         return mu_max - mu_visited
-            
-        
-        
-    
-        
