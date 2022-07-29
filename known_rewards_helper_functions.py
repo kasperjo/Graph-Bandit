@@ -26,12 +26,11 @@ def get_Q_table(G, means, T=100):
     
     k=0
     next_round = {best_node}
-    all_calls = []
+    n_calls = 0
     while next_round:
         if k > T:
             break
             
-        n_calls = 0
         curr_round = next_round.copy()
         next_round = set()
         for curr_node in curr_round:
@@ -41,10 +40,9 @@ def get_Q_table(G, means, T=100):
                 if q_value > np.max(Q[node]):
                     next_round.add(node)
                 Q[node, curr_node] = q_value
-#         all_calls.append(n_calls)
         k+=1
     
-    return Q, k, all_calls
+    return Q, k, n_calls
 
 def all_paths(G, start_node, end_node):
     """

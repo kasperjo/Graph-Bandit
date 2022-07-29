@@ -502,8 +502,8 @@ class GraphBandit(gym.Env):
                 # Reduce epsilon
         
 #                 epsilon = epsilon0 / (np.sum(self.visits)+1)
-                epsilon = epsilon0*epsilon_discount**h
-#                 epsilon = (0.2*H + 1) / (0.2*H + h)
+                # epsilon = epsilon0*epsilon_discount**h
+                epsilon = 0.7*(3*self.num_nodes + 1) / (3*self.num_nodes + h)
                 if QL_type is not None:
                     if QL_type == 1: # 'Greedy efficient' exploration
                         if False: # len(self.visitedStates) == 0:
@@ -778,21 +778,3 @@ class GraphBandit(gym.Env):
         mu_visited = self.mean[self.visitedStates]
         
         return np.array(self.all_maxes) - np.array(self.visited_expected_rewards)
-
-        # Truncated normal distribution
-        a = 0
-        b = 1
-        sigma = 1
-        mu = self.mean
-        alpha = (a-self.mean) / sigma
-        beta = (b - mu) / sigma
-        
-        Z = norm.cdf(beta) - norm.cdf(alpha)
-        
-        means = mu + (norm.pdf(alpha) - norm.pdf(beta)) /  Z * sigma
-        
-        mu_max = np.max(means)
-        mu_visited = means[self.visitedStates]
-        
-        
-        return mu_max - mu_visited
