@@ -142,6 +142,10 @@ def return_graph(graph_type='fully_connected', n_nodes=6, n_children=None):
         G.add_edge(14,15)
         for i in range(16):
             G.add_edge(i,i)
+    elif graph_type =='grid':
+        ldim = int(np.ceil(np.sqrt(n_nodes)))
+        udim = int(np.floor(np.sqrt(n_nodes)))
+        G = nx.grid_2d_graph(ldim,udim)
     else:
         raise ValueError("Invalid graph type. Must be fully_connected, line, circle, star, or tree.")
     return G
