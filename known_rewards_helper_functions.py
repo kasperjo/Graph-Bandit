@@ -1,7 +1,5 @@
 import numpy as np
-from matplotlib import pyplot as plt
 import networkx as nx
-import pickle as pkl
 
 def get_Q_table(G, means, T=100):
     """
@@ -14,10 +12,7 @@ def get_Q_table(G, means, T=100):
     The value function is sum of all rewards over the T time steps (starting at initial node)
     """
     # Find best node and initialize Q-table
-    
-#     means = np.reshape(means, (-1,))
-#     n_nodes = means.shape[0]
-    
+       
     n_nodes = len(means)
     best_node = np.argmax(means)
     mu_b = means[best_node]
@@ -149,14 +144,7 @@ def get_paths(Q_table, best_node, T):
         
     return paths
 
-def draw_graph(G, zero_indexed=True):
-    if zero_indexed:
-        labels = {n:n for n in G.nodes}
-    else:
-        labels = {n:n+1 for n in G.nodes}
-    nx.draw(G,labels=labels)
-    plt.show()
-    
+
 def control_functions(Gs, means, T):
     """
     Checks if brute force method yields same result as the more sofisticated_method
