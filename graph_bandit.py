@@ -1,5 +1,4 @@
 import numpy as np
-from known_rewards_helper_functions import get_Q_table
 import random
 
 class GraphBandit:
@@ -158,3 +157,5 @@ class GraphBandit:
         mu_visited = self.mean[self.visitedStates]
         
         return mu_max - np.array(self.visited_expected_rewards)
+
+

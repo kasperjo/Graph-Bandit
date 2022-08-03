@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import numpy as np
 import networkx as nx
-import graph_bandit_RL
+import graph_bandit
 from tqdm import trange
 
 
@@ -129,7 +129,7 @@ def testQLearning(T, n_samples, epsilon, G,\
 
     for i in trange(n_samples):      
         # Q-learning
-        QL = graph_bandit_RL.GraphBandit(means[i], G, belief_update='Bayesian_full_update',\
+        QL = graph_bandit.GraphBandit(means[i], G, belief_update='Bayesian_full_update',\
                                                     bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
                                                                     stdev_magnitude**2])
         QL.train_QL_agent(H=T, epsilon=epsilon, init_node=init_nodes)
