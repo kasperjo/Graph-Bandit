@@ -14,9 +14,13 @@ This repository contains the implementation of  graph bandit algorithms and the 
 
 ## Contents of the Python files
 
-**graph_bandit_RL.py**: contains the class definition of graph bandit environment, which includes a class method that trains a Q-learning agent.
+**graph_bandit.py**: the class definition of graph bandit environment, which includes a class method that trains a Q-learning agent.
 
-**known_rewards_helper_functions.py**: contains the shortest path algorithm for off-line planning.
+**agents.py**: contains the agent implementing our propose algorithm(under the name doubling_agent), as well as the local Thompson Sampling and UCB agents.
+
+**core.py**: contains a function that visits all nodes at least once(used in initialization), and the train_agent() function.
+
+**known_rewards_helper_functions.py**: the shortest path algorithm for off-line planning.
 
 **graph_bandit_helper_tools.py**: contains a graph generator, a graph drawing utility, and a wrapper for training a Q-learning agent.
 
