@@ -1,48 +1,45 @@
 import numpy as np
 import networkx as nx
 
-def get_Q_table(G, means, T=100):
-    """
-    param G: networkx graph (undirected); nodes in G = 0,1,2,3,...
-    param means: vector of mean rewards; corresponding, by indexing, to graphs in G
-    param T: number of times the agent plays the graph bandit "game"
-    
-    returns: Q-table, k, all_calls (the total number of q_value calculations)
-    
-    The value function is sum of all rewards over the T time steps (starting at initial node)
-    """
-    # Find best node and initialize Q-table
-       
-    n_nodes = len(means)
-    best_node = np.argmax(means)
-    mu_b = means[best_node]
-    Q = np.ones((n_nodes,n_nodes))*(-np.inf)
-    Q[best_node,best_node] = T*mu_b
-    
-    k=0
-    next_round = {best_node}
-    n_calls = 0
-    while next_round:
-        if k > T:
-            break
-            
-        curr_round = next_round.copy()
-        next_round = set()
-        for curr_node in curr_round:
-            for node in G.neighbors(curr_node):
-                n_calls += 1
-                q_value =  np.max(Q[curr_node])- mu_b + means[node]
-                if q_value > np.max(Q[node]):
-                    next_round.add(node)
-                Q[node, curr_node] = q_value
-        k+=1
-    
-    return Q, k, n_calls
+def offline_SP_planning(G_cyc,means):
+    G = G_cyc.copy()
+    G.remove_edges_from(nx.selfloop_edges(G_cyc))
 
-    
-    
+    mu_star = np.max(means)
+    s_star = np.argmax(means)
+
+    c = mu_star - means
+
+    n_nodes = G.number_of_nodes()
+
+    distance = np.ones(n_nodes)*np.inf
+
+    distance[s_star] = 0
+
+    policy = {s_star:s_star}
+
+    # Value iteration for acyclic all-to-all weighted shortest path.
+    n_calls = 0
+    n_iter = 0
+    for _ in range(n_nodes):
+        n_iter+=1
+        updated = False
+        
+        # Bellman-Ford
+        for s in G:
+            for w in G.neighbors(s):
+                n_calls +=1
+                if distance[s]>distance[w]+c[w]: 
+                    distance[s]=distance[w]+c[w]
+                    policy[s] = w
+                    updated = True
+                   
+        # Terminate early if no update is made.
+        if not updated:
+            break
+    return policy,n_calls,n_iter
+             
         
     
         
         
-    

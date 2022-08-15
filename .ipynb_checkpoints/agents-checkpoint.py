@@ -1,6 +1,6 @@
 import numpy as np
 
-from known_rewards_helper_functions import offline_SP_planning
+from known_rewards_helper_functions import offline_DP_planning
 
 
 def get_ucb(gb,nodes=None):
@@ -18,7 +18,7 @@ def get_ucb(gb,nodes=None):
 def doubling_agent(env):
     ucb = get_ucb(env)
     # Compute optimal policy.
-    policy,_,_ = offline_SP_planning(env.G,ucb)
+    policy,_,_ = offline_DP_planning(env.G,ucb)
 
     # Travel to the node with the highest UCB
     while ucb[env.state] < np.max(ucb):

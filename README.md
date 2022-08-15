@@ -16,7 +16,7 @@ This repository contains the implementation of  graph bandit algorithms and the 
 
 **graph_bandit_RL.py**: contains the class definition of graph bandit environment, which includes a class method that trains a Q-learning agent.
 
-**known_rewards_helper_functions.py**: contains the graph algorithm for off-line planning.
+**known_rewards_helper_functions.py**: contains the shortest path algorithm for off-line planning.
 
 **graph_bandit_helper_tools.py**: contains a graph generator, a graph drawing utility, and a wrapper for training a Q-learning agent.
 
@@ -25,8 +25,6 @@ This repository contains the implementation of  graph bandit algorithms and the 
 **Main.ipynb**: contains the experiments comparing our proposed algorithm with various benchmarks on various graphs.
 
 **Main Plotting.ipynb**: plotting utilities for the results obtained from **Main.ipynb**
-
-**Offline Planning.ipynb:** contains the computational complexity experiments comparing our offline planning algorithm with Dynamic Programming.
 
 **Sensitivity Analysis.ipynb:** experiments showing how the performance of our algorithm depends on graph parameters $|S|,D,$ and $\Delta$. 
 
