@@ -1,12 +1,10 @@
 import numpy as np
 from matplotlib import pyplot as plt
-import pandas as pd
 import numpy as np
 import networkx as nx
-import seaborn as sns
-import graph_bandit_RL
+import graph_bandit
 from tqdm import trange
-import json
+
 
 
            
@@ -82,7 +80,12 @@ def return_graph(graph_type='fully_connected', n_nodes=6, n_children=None):
     elif graph_type =='grid':
         ldim = int(np.ceil(np.sqrt(n_nodes)))
         udim = int(np.floor(np.sqrt(n_nodes)))
-        G = nx.grid_2d_graph(ldim,udim)
+        # G = nx.grid_2d_graph(ldim,udim)
+        G = nx.grid_graph([ldim,udim])
+        G = nx.convert_node_labels_to_integers(G)
+        
+        for i in range(len(G)):
+            G.add_edge(i,i)
     else:
         raise ValueError("Invalid graph type. Must be fully_connected, line, circle, star, or tree.")
     return G
@@ -106,56 +109,39 @@ def draw_graph(G, zero_indexed=True):
 
     
 
-def testLearning(episodes, T, n_samples, epsilon, epsilon_discount, algorithms, G,\
-                 means=None, stdevs=None, mean_magnitude=1, stdev_magnitude=1,\
-                 init_nodes=None, QL_type=0, \
-                 efficient_explore_length=None, prior_uncertainty=10, update_frequency=None, time_varying=False,\
-                 eta=None,\
-                 a=None, N=100):
+def testQLearning(T, n_samples, epsilon, G,\
+                 means=None, mean_magnitude=1, stdev_magnitude=1,\
+                 init_nodes=None,prior_uncertainty=10
+                ):
     """
-    param episodes: number of episodes
     param T: time horizon (per epoch)
     param n_samples: number of randomized samples
     param epsilon: exploration parameter (epsilon greedy)
-    param epsilon: epsilon discount; epsilon=v^t * epsilon0
-    param algorithms: list of "exploration algorithms" to evaluate; rlNoUpdate, rlBayesianUpdate, rlAverageUpdate,
-        rlBayesianFull, (rlAverageFull), thompson, UCB
     param G: networkx graph
-    param T_eps_max: maximum exploration length
     param mean_magnitude: magnitude of mean reward; e.g. mean_magnitude=a-> means=np.random.normal(size=(n_samples,6))*a
     param stdev_magnitude: magnitude of mean reward; e.g. stdev_magnitude=a-> means=np.ones((n_samples,6))*10*a
     param initNodes: Dictionary of initial nodes for each algorithm
     """
-    all_successes = {alg: [] for alg in algorithms}
-    
     nNodes = len(G.nodes)
-    regrets = {alg: np.zeros((n_samples, T)) for alg in algorithms}
-    rewards = {alg: np.zeros((n_samples, T)) for alg in algorithms}
+    regrets = np.zeros((n_samples, T)) 
+    rewards = np.zeros((n_samples, T)) 
 
     if means is None:
         means = np.random.uniform(low=0.5, high=5.5,size=(n_samples,nNodes))
-
-    if stdevs is None:
-        stdevs = np.ones((n_samples,nNodes))*0.1
-
         
     if init_nodes is None:
         init_nodes = {alg: None for alg in algorithms}
 
     for i in trange(n_samples):      
         # Q-learning
-        if 'Q_learning' in algorithms:
-            QL = graph_bandit_RL.GraphBandit(means[i], stdevs[i], G, belief_update='Bayesian_full_update',\
-                                                        bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
-                                                                        stdev_magnitude**2],\
-                                                  time_varying=time_varying, eta=eta,a=a, N=N)
-            QL.train_agent(episodes=episodes, H=T, epsilon=epsilon, epsilon_discount=epsilon_discount,\
-                                       QL_type=1, init_node=init_nodes['Q_learning'],\
-                                       update_multiple_qs=True, update_frequency=update_frequency)
-            regrets['Q_learning'][i,:] = QL.expectedRegret()[-T:]
-            all_successes['Q_learning'].append(QL.success)
-            rewards['Q_learning'][i,:] = QL.collected_rewards
-         
+        QL = graph_bandit.GraphBandit(means[i], G, belief_update='Bayesian_full_update',\
+                                                    bayesian_params=[0, prior_uncertainty*mean_magnitude**2,\
+                                                                    stdev_magnitude**2])
+        QL.train_QL_agent(H=T, epsilon=epsilon, init_node=init_nodes)
+        
+        regrets[i,:] = QL.expectedRegret()[-T:]
+        rewards[i,:] = QL.collected_rewards
+
             
-    return regrets, all_successes, rewards
+    return regrets, rewards
 

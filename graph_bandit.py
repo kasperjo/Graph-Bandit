@@ -23,6 +23,11 @@ class GraphBandit:
         self.state = init_state
         self.nodes = self.G.nodes
         self.visited_expected_rewards = []
+
+        self.sasr = {}
+        for s in self.G:
+            for w in self.G[s]:
+                self.sasr[(s,w)]= []
         
         # Number of nodes
         self.num_nodes = self.mean.shape[0]
@@ -59,7 +64,7 @@ class GraphBandit:
             state_old = self.state
             self.state = action
             
-            
+            self.sasr[state_old,action].append([self.state,reward])
                         
             self.collected_rewards.append(reward)
             self.nodes[action]['r_hist'].append(reward)

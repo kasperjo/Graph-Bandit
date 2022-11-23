@@ -45,6 +45,9 @@ def train_agent(n_samples,T,G,means, init_node,execute_agent):
             
         # print(env.visitedStates.shape,regrets.shape)
             
-        regrets[i,:]= env.expectedRegret()[:T]
+        # regrets[i,:]= env.expectedRegret()[:T]
+        
+        regrets[i,:]= env.expectedRegret()[-T:]
+        
         
     return regrets

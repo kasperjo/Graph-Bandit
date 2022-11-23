@@ -33,3 +33,7 @@ This repository contains the implementation of  graph bandit algorithms and the 
 **Sensitivity Analysis.ipynb:** experiments showing how the performance of our algorithm depends on graph parameters $|S|,D,$ and $\Delta$. 
 
 **Robotic Application.ipynb**: contains the synthetic robotic application of providing Internet access to rural/suburban areas using an UAV.
+
+**Direct SP.ipynb**: additional experiments comparing two ways of reaching the destination node in one iteration, a section described in the technical appendix. 
+
+**Direct SP Plotting.ipynb**: the plotting notebook for **Direct SP.ipynb**. 
